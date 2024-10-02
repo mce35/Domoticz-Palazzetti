@@ -35,7 +35,7 @@ class BasePlugin:
     httpConn = None
     nextConnect = 3
     oustandingPings = 0
-    
+
     __UNIT_ONOFF = 1
     __UNIT_POWER = 2
     __UNIT_FAN2LEVEL = 3 # FAN_FAN2LEVEL
@@ -56,7 +56,7 @@ class BasePlugin:
     onStatus = 0
     
     nextCommands = []
-    
+
     __statusCodes = { "0": "Off",
                       "1": "Timer-regulated switch off",
                       "2": "Ignition test",
@@ -72,6 +72,7 @@ class BasePlugin:
                       "12": "Cooling in progress",
                       "50": "Final cleaning",
                       "51": "Ecomode",
+                      # Following codes from https://forum.jeedom.com/viewtopic.php?f=59&t=38794&sid=9579e7896cb1d85dae9adc9a0933c973
                       "241": "CHIMNEY ALARM",
                       "243": "GRATE ERROR",
                       "244": "NTC2 ALARM",
@@ -82,6 +83,7 @@ class BasePlugin:
                       "250": "TC1 ALARM",
                       "252": "GAS ALARM",
                       "253": "NOPELLET ALARM",
+                      # Following codes from here https://github.com/dotvav/vihio/blob/master/Vihio.py
                       "501": "Off",
                       "502": "Ignition",
                       "503": "Fuel check",
@@ -104,8 +106,8 @@ class BasePlugin:
                       "1252": "Too high exhaust gas temperature",
                       "1253": "Pellets finished or Ignition failed",
                       "1508": "General error – See Manual" }
-    
-    # Custom translated Status codes               
+
+    # Custom translated Status codes
     statusCodes = {}
 
     alarmCodes = { "241": "CHIMNEY ALARM",
@@ -118,7 +120,7 @@ class BasePlugin:
                    "250": "TC1 ALARM",
                    "252": "GAS ALARM",
                    "253": "NOPELLET ALARM" }
-    
+
     # Choice of connection box API
     # True stands for new API with LUA cgi script introduced mid-2018
     # False stands for previous API using the Php frontend application
@@ -161,14 +163,13 @@ class BasePlugin:
         return
 
     def onStart(self):
-    
         # duplicate status codes
         self.statusCodes = self.__statusCodes.copy()
-    
+
         # Domoticz.Debug("onStart called")
         if Parameters["Mode6"] == "Debug":
             Domoticz.Debugging(1)
-            
+
         # Use new cbox LUA API instead of PHP ?
         if Parameters["Mode4"] == "False":
             self.useNewLUA_API = False
@@ -184,60 +185,67 @@ class BasePlugin:
             Domoticz.Debug("Will use the old PHP API backend")
             self.API_URI = self.__API_URI_PHP
 
-        if (len(Devices) != 15):
-            # types / subtypes reference: https://github.com/domoticz/domoticz/blob/master/hardware/hardwaretypes.h
-            # Image index for switches: Fireplace: 10, Fan: 7, Heating: 15, Generic: 
-            
+        # types / subtypes reference: https://github.com/domoticz/domoticz/blob/master/hardware/hardwaretypes.h
+        # Image index for switches: Fireplace: 10, Fan: 7, Heating: 15, Generic: 
+
+        if self.__UNIT_ONOFF not in Devices:
             # On/Off switch
             Domoticz.Device(Name="On-Off", Unit=self.__UNIT_ONOFF, TypeName="Switch", Image=10, Used=1).Create()
-            
+        
+        if self.__UNIT_POWER not in Devices:
             # Power selector switch
             PowerSelectorOptions = {"LevelActions": "|||||",
                                     "LevelNames": "Off|1|2|3|4|5",
                                     "LevelOffHidden": "true",
                                     "SelectorStyle": "1"}
             Domoticz.Device(Name="Power Level", Unit=self.__UNIT_POWER, TypeName="Selector Switch", Image=10, Options=PowerSelectorOptions, Used=1).Create()
-            
+
+        if self.__UNIT_FAN2LEVEL not in Devices:
             # Fan speed selector switch
             FanSpeedSelectorOptions = {"LevelActions": "|||||||",
-                                       "LevelNames": "Off|1|2|3|4|5|Auto|Hi",
-                                       "LevelOffHidden": "false",
-                                       "SelectorStyle": "1"}
+                                    "LevelNames": "Off|1|2|3|4|5|Auto|Hi",
+                                    "LevelOffHidden": "false",
+                                    "SelectorStyle": "1"}
             Domoticz.Device(Name="Fan Speed", Unit=self.__UNIT_FAN2LEVEL, TypeName="Selector Switch", Image=7, Options=FanSpeedSelectorOptions, Used=1).Create()
-            
+
+        if self.__UNIT_SETP not in Devices:
             # Setpoint
             Domoticz.Device(Name="Setpoint", Unit=self.__UNIT_SETP, Type=242, Subtype=1, Image=15, Used=1).Create()
-            
+
+        if self.__UNIT_TMP_ROOM not in Devices:
             # Room Temperature
             Domoticz.Device(Name="Room Temperature", Unit=self.__UNIT_TMP_ROOM, TypeName="Temperature", Used=1).Create()
-            
+        
+        if self.__UNIT_PELLET_QTUSED not in Devices:
             #  pellet counter
             Domoticz.Device(Name="Pellets Qty Used", Unit=self.__UNIT_PELLET_QTUSED, Type=113, Subtype=0, Switchtype=3, Used=1).Create()
-      
+
+        if self.__UNIT_STATUS not in Devices:
             # Status code
             Domoticz.Device(Name="Status code", Unit=self.__UNIT_STATUS, TypeName="Text", Used=0).Create()
-            
+
+        if self.__UNIT_STATUSLABEL not in Devices:
             # Status Label
             Domoticz.Device(Name="Status", Unit=self.__UNIT_STATUSLABEL, TypeName="Text", Used=1).Create()
-            
+
+        if self.__UNIT_TIMER_ONOFF not in Devices:
             # Timer On/Off switch
             Domoticz.Device(Name="Timer", Unit=self.__UNIT_TIMER_ONOFF, TypeName="Switch",Image=1,  Used=1).Create()
-            
-            # TMP_PELLET_BACKW
+
+        if self.__UNIT_TMP_PELLET_BACKW not in Devices:
             Domoticz.Device(Name="Pellet Backwall Temperature", Unit=self.__UNIT_TMP_PELLET_BACKW, TypeName="Temperature", Used=0).Create()
-            
-            # TMP_EXHAUST
+
+        if self.__UNIT_TMP_ROOM not in Devices:
+            # Exhaust temperature
             Domoticz.Device(Name="Exhaust Temperature", Unit=self.__UNIT_TMP_EXHAUST, TypeName="Temperature", Used=0).Create()
-            
-            # __UNIT_FAN_FAN1V
-            
-            # __UNIT_FAN_FAN1RPM
+
+        if self.__UNIT_FAN_FAN1RPM not in Devices:
             Domoticz.Device(Name="FAN_FAN1RPM", Unit=self.__UNIT_FAN_FAN1RPM, Type=243, Subtype=7 , Used=1).Create()
 
-            # __UNIT_DP
+        if self.__UNIT_DP not in Devices:
             Domoticz.Device(Name="DP", Unit=self.__UNIT_DP, Type=243, Subtype=0x1F , Used=1).Create()
 
-        # prepare first commande before connecting
+        # prepare first command before connecting
         self.nextCommands.append("GET+ALLS")
 
         # no need for CHRD with new API because Chrono status info is returned part of the GET+ALLS cmd
@@ -246,7 +254,7 @@ class BasePlugin:
 
         self.httpConn = Domoticz.Connection(Name="cbox", Transport="TCP/IP", Protocol="HTTP", Address=Parameters["Address"], Port=Parameters["Port"])
         self.httpConn.Connect()
-        
+
         Domoticz.Heartbeat(10)
 
 
@@ -257,7 +265,7 @@ class BasePlugin:
         if (Status == 0):
             Domoticz.Debug("Connected successfully to "+Parameters["Address"]+":"+Parameters["Port"])
 
-            # loop on pending commands                
+            # loop on pending commands
             while ( len( self.nextCommands ) > 0 ):
               cmd = self.nextCommands.pop(0)
               Domoticz.Debug("onConnect: cmd: " +cmd)
@@ -270,7 +278,6 @@ class BasePlugin:
 
 
     def onMessage(self, Connection, Data):
-    
         Response = json.loads( Data["Data"].decode("utf-8", "ignore") )
 
         # JSON keys map to use
@@ -309,15 +316,15 @@ class BasePlugin:
             # ROOM Temperature
             if keys["TMP_ROOM"] in DataResponse:
                 UpdateDevice(self.__UNIT_TMP_ROOM, 0, str( DataResponse[keys["TMP_ROOM"]] ))
-            
+
             # TMP_PELLET_BACKW
             if keys["TMP_PELLET_BACKW"] in DataResponse:
                 UpdateDevice(self.__UNIT_TMP_PELLET_BACKW, 0, str( DataResponse[keys["TMP_PELLET_BACKW"]] ))
-            
+
             # TMP_EXHAUST
             if keys["TMP_EXHAUST"] in DataResponse:
                 UpdateDevice(self.__UNIT_TMP_EXHAUST, 0, str( DataResponse[keys["TMP_EXHAUST"]] ))
-            
+
             # Setpoint
             if keys["SETP"] in DataResponse:
                 UpdateDevice(self.__UNIT_SETP, 0, str( DataResponse[keys["SETP"]] ))
@@ -348,8 +355,7 @@ class BasePlugin:
 
                 # Update status label
                 UpdateDevice(self.__UNIT_STATUSLABEL, 0, self.statusCodes.get(str(self.status)), False)
-          
-          
+
             # RoomFan
             if keys["FAN_FAN2LEVEL"] in DataResponse:
                 newRoomFanLevel = int( DataResponse[keys["FAN_FAN2LEVEL"]] )
@@ -392,12 +398,12 @@ class BasePlugin:
             #     elif ( self.status == 1):
             #         UpdateDevice(self.__UNIT_TIMER_ONOFF, 1, str("On"), False)
 
-        # NO RSP: OK response          
+        # NO RSP: OK response
         else:
             Domoticz.Error("Error in Connection Box response: "+str(Response))
 
         return True 
-    
+
     #    
     # Called when a command is received from Domoticz. The Unit parameters matches the Unit specified in the device definition and should be used to map commands
     # to Domoticz devices. Level is normally an integer but may be a floating point number if the Unit is linked to a thermostat device. This callback should be
@@ -405,11 +411,11 @@ class BasePlugin:
     #
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Command '" + str(Command) + "', Level: " + str(Level) + ", Connected: " + str(self.httpConn.Connected()))
-        
+
         Command = Command.strip()
         action, sep, params = Command.partition(' ')
         action = action.capitalize()
-        
+
         if (Unit == self.__UNIT_FAN2LEVEL): # Fan Speed Selector Switch
             fanLevel = 2
             if (int(Level) >= 10 ) and  (int(Level) <= 50): # 1, 2, 3, 4, 5
@@ -424,13 +430,13 @@ class BasePlugin:
             Domoticz.Debug("Setting new fan speed:"+str(fanLevel))
             cmd = "SET+RFAN+"+str(fanLevel)
             self.sendConnectionBoxCommand(cmd)
-            
+
         elif (Unit == self.__UNIT_POWER): # Power Level Selector Switch
             powerLevel = int(int(Level) / 10)
             Domoticz.Debug("Setting new power level:"+str(powerLevel))
             cmd = "SET+POWR+"+str(powerLevel)
             self.sendConnectionBoxCommand(cmd)
-            
+
         elif (Unit == self.__UNIT_ONOFF): # On/Off Switch
             if (action == 'Off'):
               Domoticz.Debug("Switching Off")
@@ -445,14 +451,14 @@ class BasePlugin:
               cmd = "CMD+ON"
               self.sendConnectionBoxCommand(cmd)
             return True
-        
+
         elif (Unit == self.__UNIT_SETP): # Setpoint
             # (ConnectionBox) onCommand called for Unit 4: Command 'Set Level', Level: 20.0, Connected: False
             newSetpoint = int(Level)  # convert into integer to round float
             Domoticz.Debug("onCommand with new Setpoint:"+str(newSetpoint))
             cmd = "SET+SETP+"+str(newSetpoint)
             self.sendConnectionBoxCommand(cmd)
-            
+
         elif (Unit == self.__UNIT_TIMER_ONOFF): # Timer On/Off Switch
             if (action == 'Off'):
               Domoticz.Debug("Switching Timer Off")
@@ -480,13 +486,13 @@ class BasePlugin:
     def onHeartbeat(self):
         
         self.nextConnect = self.nextConnect - 1
-        
+
         if (self.nextConnect <= 0):
             self.nextConnect = 6
             self.updateConnectionBoxStatus()
             
         return True
-            
+
 #         if self.httpConn.Connected():
 #             # updates
 #             if ( self.oustandingPings == 1 or self.oustandingPings == 12 ):
@@ -520,9 +526,9 @@ class BasePlugin:
 #                 self.nextConnect = 3
 #                 self.httpConn.Connect()
 #         return True
-        
+
     def updateConnectionBoxStatus(self):
-    
+
         if self.httpConn.Connected():
             self.sendConnectionBoxCommand("GET+ALLS", False)
 
@@ -557,8 +563,6 @@ class BasePlugin:
                          'Headers' : headers
                        }
             self.httpConn.Send(sendData)
-            
-            
         else:
             if ( self.nextCommands.count(command) == 0 ):
                 if prio:
@@ -570,8 +574,8 @@ class BasePlugin:
             
             if not self.httpConn.Connecting(): 
               self.httpConn.Connect()
-            
-            
+
+
     def updateCustomStatusCodes(self, customCodesStr):
         customCodesDict = None
         try:
@@ -602,7 +606,7 @@ class BasePlugin:
         Domoticz.Debug("### Final dict of codes ####")
         for key, value in self.statusCodes.items():
           Domoticz.Debug("key: "+key+":"+value)                  
-    
+
 
 global _plugin
 _plugin = BasePlugin()
@@ -662,17 +666,17 @@ def DumpConfigToLog2():
     for x in Parameters:
         if Parameters[x] != "":
            Domoticz.Debug("Parameter '" + x + "'...: '" + str(Parameters[x]) + "'")
-    
+
     # Show settings
     Domoticz.Debug("Settings count...: " + str(len(Settings)))
     for x in Settings:
        Domoticz.Debug("Setting '" + x + "'...: '" + str(Settings[x]) + "'")
-    
+
     # Show images
     Domoticz.Debug("Image count..........: " + str(len(Images)))
     for x in Images:
         Domoticz.Debug("Image '" + x + "...': '" + str(Images[x]) + "'")
-    
+
     # Show devices
     Domoticz.Debug("Device count.........: " + str(len(Devices)))
     for x in Devices:
@@ -699,7 +703,7 @@ def UpdateDevice(Unit, nValue, sValue, always = True):
             Devices[Unit].Update(nValue=nValue, sValue=str(sValue))
             #Domoticz.Debug("Update "+str(nValue)+":'"+str(sValue)+"' ("+Devices[Unit].Name+") due to different in sValue")
     return
-    
+
 def DumpHTTPResponseToLog(httpDict):
     if isinstance(httpDict, dict):
         Domoticz.Log("HTTP Details ("+str(len(httpDict))+"):")
